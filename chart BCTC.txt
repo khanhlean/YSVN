@@ -1,0 +1,326 @@
+ALTER PROCEDURE ysvn_Chart_asset
+
+ @stockCode      nvarchar(50),
+ @reportTermType int,
+ @unit           int
+as
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @companyType INT
+    DECLARE @reportNormID_cash INT
+    DECLARE @reportNormID_short_invest INT
+    DECLARE @reportNormID_short_receivable INT
+    DECLARE @reportNormID_inventory INT
+    DECLARE @reportNormID_short_other_asset INT
+    DECLARE @reportNormID_long_receivable INT
+    DECLARE @reportNormID_fixAsset_total INT
+    DECLARE @reportNormID_invest_properties INT
+    DECLARE @reportNormID_long_financial_invest INT
+    DECLARE @reportNormID_goodwill INT
+    DECLARE @reportNormID_long_other_asset INT
+    DECLARE @reportNormID_long_other_asset_in_progress INT
+    SET @companyType = (SELECT CompanyType
+                        FROM Company WITH (NOLOCK)
+                        WHERE CompanyCode = @stockCode)
+
+    DECLARE @tempTable as Table
+                          (
+                              ReportDataID                        int,
+                              YearPeriod                          int,
+                              ReportTermID                        int,
+															TermCode 													varchar(10),
+                              TValue_cash                         numeric(18, 2),
+                              TValue_short_invest                 numeric(18, 2),
+                              TValue_short_receivable             numeric(18, 2),
+                              TValue_inventory                    numeric(18, 2),
+                              TValue_short_other_asset            numeric(18, 2),
+                              TValue_long_receivable              numeric(18, 2),
+                              TValue_fixAsset_total               numeric(18, 2),
+                              TValue_invest_properties            numeric(18, 2),
+                              TValue_long_financial_invest        numeric(18, 2),
+                              TValue_goodwill                     numeric(18, 2),
+                              TValue_long_other_asset             numeric(18, 2),
+                              TValue_long_other_asset_in_progress numeric(18, 2)
+                          )
+
+
+    IF (@companyType = 0)
+        BEGIN
+            set @reportNormID_cash = 3003
+            set @reportNormID_short_invest = 3004
+            set @reportNormID_short_receivable = 3005
+            set @reportNormID_inventory = 3006
+            set @reportNormID_short_other_asset = 3000
+            set @reportNormID_long_receivable = 3008
+            set @reportNormID_fixAsset_total = 3009
+            set @reportNormID_invest_properties = 3010
+            set @reportNormID_long_financial_invest = 3011
+            set @reportNormID_goodwill = 3012
+            set @reportNormID_long_other_asset = 3013
+            set @reportNormID_long_other_asset_in_progress = 5298
+        END
+    ELSE
+        IF (@companyType = 1)
+            BEGIN
+                set @reportNormID_cash = 4774
+                set @reportNormID_short_invest = 4483
+                set @reportNormID_short_receivable = 3005
+                set @reportNormID_inventory = 4485
+                set @reportNormID_short_other_asset = 3000
+                set @reportNormID_long_receivable = 3008
+                set @reportNormID_fixAsset_total = 3009
+                set @reportNormID_invest_properties = 3010
+                set @reportNormID_long_financial_invest = 4490
+                set @reportNormID_goodwill = 3012
+                set @reportNormID_long_other_asset = 3013
+                set @reportNormID_long_other_asset_in_progress = 5298
+
+            END
+        ELSE
+            IF (@companyType = 2)
+                BEGIN
+                    SET @reportNormID_cash = 3102
+                    set @reportNormID_short_invest = 3004
+                    set @reportNormID_short_receivable = 3005
+                    set @reportNormID_inventory = 3006
+                    set @reportNormID_short_other_asset = 3000
+                    set @reportNormID_long_receivable = 3008
+                    set @reportNormID_fixAsset_total = 3009
+                    set @reportNormID_invest_properties = 3010
+                    set @reportNormID_long_financial_invest = 3011
+                    set @reportNormID_goodwill = 3012
+                    set @reportNormID_long_other_asset = 3013
+                    set @reportNormID_long_other_asset_in_progress = 5298
+
+
+                END
+            ELSE
+                IF (@companyType = 4)
+                    BEGIN
+                        set @reportNormID_cash = 3003
+                        set @reportNormID_short_invest = 3103
+                        set @reportNormID_short_receivable = 3005
+                        set @reportNormID_inventory = 3105
+                        set @reportNormID_short_other_asset = 3000
+                        set @reportNormID_long_receivable = 3008
+                        set @reportNormID_fixAsset_total = 3009
+                        set @reportNormID_invest_properties = 3010
+                        set @reportNormID_long_financial_invest = 3110
+                        set @reportNormID_goodwill = 3012
+                        set @reportNormID_long_other_asset = 3013
+                        set @reportNormID_long_other_asset_in_progress = 5298
+
+                    END
+                ELSE
+                    BEGIN
+                        set @reportNormID_cash = 3003
+                        set @reportNormID_short_invest = 3004
+                        set @reportNormID_short_receivable = 3005
+                        set @reportNormID_inventory = 3006
+                        set @reportNormID_short_other_asset = 3000
+                        set @reportNormID_long_receivable = 3008
+                        set @reportNormID_fixAsset_total = 3009
+                        set @reportNormID_invest_properties = 3010
+                        set @reportNormID_long_financial_invest = 3011
+                        set @reportNormID_goodwill = 3012
+                        set @reportNormID_long_other_asset = 3013
+                        set @reportNormID_long_other_asset_in_progress = 5298
+                    END;
+
+    WITH report AS (SELECT ROW_NUMBER() OVER (ORDER BY YearPeriod DESC, DisplayOrdering) AS Ind,
+                           c.CompanyID,
+                           ReportDataID,
+                           YearPeriod,
+                           TermCode,
+                           vw.ReportTermID,
+                           DisplayOrdering,
+                           (
+                               CASE IsUnited
+                                   WHEN 0 THEN N'HN'
+                                   WHEN 1 THEN N'ĐL'
+                                   ELSE N'CTM'
+                                   END
+                               )                                                         AS United,
+                           aus.AuditedStatusCode                                         AS AuditedStatus,
+                           ReportTermTypeID,
+                           vw.BasePeriodBegin,
+                           vw.BasePeriodEnd,
+                           vw.PeriodBegin,
+                           vw.PeriodEnd
+                    FROM vw_LastestReport_ForYSVN vw WITH (NOLOCK)
+                             INNER JOIN Company c WITH (NOLOCK)
+                                        ON c.CompanyID = vw.CompanyID
+                             INNER JOIN ReportTerm dt WITH (NOLOCK)
+                                        ON vw.ReportTermID = dt.ReportTermID
+                             INNER JOIN AuditedStatus aus WITH (NOLOCK)
+                                        ON aus.AuditedStatusID = vw.AuditStatusID
+                    WHERE CompanyCode = @stockCode
+                      AND ReportTermTypeID = @reportTermType
+                      AND YearPeriod >= 2010)
+
+    Insert
+    Into @tempTable(ReportDataID, YearPeriod, ReportTermID, TermCode)
+    SELECT rd.ReportDataID, rd.YearPeriod, rd.ReportTermID, rt.TermCode
+    from ReportDataDetails rdd
+             INNER JOIN ReportData rd on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID in (SELECT ReportDataID FROM report)
+			and rd.YearPeriod >= '2020'
+    Group by rd.ReportDataID, rd.YearPeriod, rd.ReportTermID,rt.TermCode
+    ORDER BY rd.YearPeriod, rd.ReportTermID
+
+    update @tempTable
+    set TValue_cash     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_cash
+
+    update @tempTable
+    set TValue_short_invest     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_short_invest
+
+
+    update @tempTable
+    set TValue_short_receivable     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_short_receivable
+
+
+    update @tempTable
+    set TValue_inventory     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_inventory
+
+
+    update @tempTable
+    set TValue_short_other_asset     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_short_other_asset
+
+    update @tempTable
+    set TValue_long_receivable     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_long_receivable
+
+
+    update @tempTable
+    set TValue_fixAsset_total     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_fixAsset_total
+
+    update @tempTable
+    set TValue_invest_properties     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_invest_properties
+
+    update @tempTable
+    set TValue_long_financial_invest     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_long_financial_invest
+
+    update @tempTable
+    set TValue_goodwill     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_goodwill
+
+    update @tempTable
+    set TValue_long_other_asset     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_long_other_asset
+
+
+    update @tempTable
+    set TValue_long_other_asset_in_progress     =  ROUND(ISNULL(rdd.Value / @unit, 0), 2)
+    from @tempTable as a
+             INNER JOIN ReportDataDetails rdd with (Nolock ) on rdd.ReportDataID = a.ReportDataID
+             INNER JOIN ReportData rd with (Nolock ) on rd.ReportDataID = rdd.ReportDataID
+             INNER JOIN Company c with (Nolock ) on c.CompanyID = rd.CompanyID
+             INNER JOIN ReportTerm rt with (Nolock ) on rd.ReportTermID = rt.ReportTermID
+    where c.CompanyCode = @stockCode
+      and rd.ReportDataID = a.ReportDataID
+      and rd.ReportTermID = a.ReportTermID
+      and rdd.ReportNormID = @reportNormID_long_other_asset_in_progress
+
+    select * from @tempTable
+
+END
